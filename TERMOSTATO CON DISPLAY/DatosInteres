@@ -1,0 +1,4 @@
+Un sensor muy común es el Pt100 (RTD de platino con R=100 {\displaystyle \Omega } \Omega  a 0 °C). En la siguiente tabla se muestran valores estándar de resistencia a distintas temperaturas para un sensor Pt100 con {\displaystyle \alpha } \alpha  = 0.00385 {\displaystyle K^{-1}} {\displaystyle K^{-1}}.
+
+Temperatura                                 (°C))	0	  20	    30	    40	    60	    80	    100
+Resistencia ( {\displaystyle \Omega } \Omega )	100	  107.79	111.55	115.54	123.1	  130.87	138.50
