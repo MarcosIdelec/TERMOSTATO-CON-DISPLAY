@@ -1,6 +1,6 @@
 //**********************************************************************************************************************************************************
 //**********************************************************************************************************************************************************
-// Fecha 30/04/2020   11:57
+// Fecha 28/04/2020   11:57
 //**********************************************************************************************************************************************************
 #include <LiquidCrystal.h>
 #include <EEPROM.h>
@@ -33,14 +33,15 @@ Adafruit_MAX31865 thermo = Adafruit_MAX31865(2, 11, 12, 13);
  * KEY pin to analogl pin 0
  */
 LiquidCrystal lcd(8, 13, 9, 4, 5, 6, 7);
-const int numeroDeMenus=6;
+const int numeroDeMenus=7;
 char tituloMenu[numeroDeMenus][16] = {
   "Fijar Temp.: ",
   "Fijar Tiempo:",               
   "Kp:          ",
   "Kd:          ",
   "Ki:          ",
-  "Intensidad:  " };
+  "Intensidad:  ",
+  "Grabar datos:"};
 int adc_key_val[5] ={
   50, 200, 400, 600, 800 };
 int adc_key_in;
@@ -70,6 +71,7 @@ byte kp=1;
 byte kd=1;
 byte ki=1;
 byte intensidad=80;
+int confirmar = 0;
 
 //const int ledPin =  3;                                    //salida proporcional.
 const int RELAY_PIN =  3;                                    //salida proporcional.
@@ -87,7 +89,7 @@ double Kp=2, Ki=5, Kd=1;
 
 PID myPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
 
-int WindowSize = 5000;
+int WindowSize = 50;
 unsigned long windowStartTime;
 
 //**********************************************************************************************************************************************************
@@ -99,14 +101,21 @@ void setup()
  
   //----------------------------------------------------------------------------- setup Sonda
   Serial.begin(115200);
-  Serial.println("Adafruit MAX31865 PT100 Sensor Test!");
+  //Serial.println("Adafruit MAX31865 PT100 Sensor Test!");
   //thermo.begin(MAX31865_3WIRE);  // set to 2WIRE or 4WIRE as necessary Original programa pero compila con ....
   thermo.begin(MAX31865_4WIRE);    // set to 2WIRE or 4WIRE as necessary 
   //----------------------------------------------------------------------------- setup teclado
  pinMode(RELAY_PIN, OUTPUT);
- digitalWrite(RELAY_PIN, HIGH);
+ digitalWrite(RELAY_PIN, LOW);
 
 boolean  cargarConfig();
+/* 
+ *  if (cargaConfig == true) {
+    Serial.println("Carga daos correcta"); 
+    delay(1000);
+  }
+ */ 
+// Serial.println(" Cargar config ejecutado.="); 
   pinMode(10, OUTPUT);
  
   analogWrite(10,intensidad*25);
@@ -136,7 +145,7 @@ boolean  cargarConfig();
 
   //initialize the variables we're linked to
   // Setpoint = 100;
-     Setpoint = -7;  
+   Setpoint =0;  
 
 
   //tell the PID to range between 0 and the full window size
@@ -151,6 +160,7 @@ boolean  cargarConfig();
 
 void loop()
 {
+  confirmar = 0 ; 
   // Input = analogRead(PIN_INPUT);
   // myPID.Compute();
   
@@ -196,8 +206,7 @@ void loop()
     }
     thermo.clearFault();
   }
-  //Serial.println();
-  //delay(10);
+
         //--------------------------------------------------------------------------------------------------------------------------
 
 
@@ -207,17 +216,13 @@ void loop()
   }
   
   if (millis()-time > 7000) {  // Si han pasado mas de 7 segundos salimos del menu
-    if (enMenu) guardarConfig();
     enMenu = false;
     x=0;
     time = millis();
-    //  }
-    //  if (!enMenu) {
     lcd.clear();
     lcd.setCursor(0,0); 
     lcd.print("Temperatura:    ");
     lcd.setCursor(0,1);
- //   sprintf(temp, "%3d%c%1d%cC", lectura/100, '.', lectura/10%10,223);
     lcd.print(float (lectura));
     
   /*   Serial.print("Temperatura[");
@@ -233,14 +238,12 @@ void loop()
     cursorActivo=false;
   } 
 
-
-
   adc_key_in = analogRead(0);    // Leemos el valor de la pulsacion
-  key = get_key(adc_key_in);    // Obtenemos el boton pulsado
+  key = get_key(adc_key_in);    // Obtenemos el boton pulsado   
 
   if (key != oldkey)   // if keypress is detected
   {
-    delay(40);  // Espera para evitar los rebotes de las pulsaciones
+    delay(50);  // Espera para evitar los rebotes de las pulsaciones
     adc_key_in = analogRead(0);    // Leemos el valor de la pulsacion
     key = get_key(adc_key_in);    // Obtenemos el boton pulsado
     if (key != oldkey)    
@@ -271,7 +274,8 @@ void loop()
           x--;
           if (x<0) x = 0;
         }
-        if (key == 4){  // Se ha pulsado la tecla de seleccion
+          if ((key == 4) && (enMenu)) {    // Se ha pulsado la tecla de seleccion
+           confirmar = 1;                          
         }
         enMenu = true;
         lcd.clear();
@@ -300,36 +304,43 @@ void loop()
           break;
         case 4:  // Estamos en Ki.
           ki += accion;
-          lcd.print(ki);
+             lcd.print(ki);
           break;
-        case 5:  // Estamos en Ki.
+        case 5:  // Estamos en Intensidad.
           intensidad += accion;
           if (intensidad > 254) intensidad = 0;
           if (intensidad > 10) intensidad = 10;
           lcd.print(intensidad);
           lcd.print("0%");
           analogWrite(10,intensidad*25);
+           break;
+         case 6:  // Estamos confirmar.
+          confirmar += accion;
+          if (confirmar > 1) confirmar = 1;
+          if (confirmar < 0 ) confirmar = 0;
+          
+          lcd.print(" SELECT= Grabar ");
+                 if (confirmar == 1) { 
+                               lcd.clear();
+                               lcd.setCursor(0,0); 
+                               lcd.print("   Grabando... ");
+                               delay (2000);
+                     
+                              // Serial.print("Confirmar ha sido ejecutado =");Serial.println(confirmar);
+  
+                          }      
           break;
         } 
       }
     }
   }        // Teminación de las acciones de teclado.
+  
 
-Setpoint = consigna;
-Setpoint = (consigna -(consigna*2));
-WindowSize = tiempo;
-Kp = kp;
-Kd = kd;
-Ki = ki;
-Serial.print("consigna =");Serial.println(Setpoint); 
-Serial.print("tiempo =");Serial.println(WindowSize);
-Serial.print("kp =");Serial.println(Kp);
-Serial.print("kd =");Serial.println(Kd);
-Serial.print("ki =");Serial.println(Ki);   
 
+  
 
  //   ***********************************************************************************  Iniciamos el muestreo de las 100 muestras.
-  //if ((numeroLectura > 99) && (numeroLecturas < 2)) 
+
   if (numeroLectura > 9) 
     {
           //Si estamos en la muestra 1  ponemos la suma maximo y minimo a sus valoras maximos de escala  
@@ -347,7 +358,7 @@ Serial.print("ki =");Serial.println(Ki);
                        minimo = lecturas[i];         //Si hay un nuevo minimo se guarda como nuevo minimo
                       }
 
-       /*   Serial.print("Temperatura[");
+       /*  Serial.print("Temperatura[");
           Serial.print(i);
           Serial.print("]: "); 
           Serial.println(lecturas[i]); 
@@ -358,59 +369,74 @@ Serial.print("ki =");Serial.println(Ki);
 
         
     diferencia = maximo - minimo;    // De las 100 medidas obtenemos una diferencia maxima   
+    
   
     //
             if (diferencia > 100) {               // Si la diferencia es superior a un grado consideramos que ha habido un error en la lectura
-                Serial.println("Lectura no valida");
+                //Serial.println("Lectura no valida");
                      //  Descartar lectura y repetir la medida
               } 
              else {
                       numeroLecturas++;     //Pero si la diferencia es acepable damos por buena una medida con esa media.
-                       t3=t2;
-                        t2=t1;
-                        t1=suma;
+
              }
-    //Por lo tanto despues de 100 muestra tenemos los siguientes datos.
-    Serial.println("**********************************************************************************************************");
+//Por lo tanto despues de 100 muestra tenemos los siguientes datos.
+/*    Serial.println("**********************************************************************************************************");
     Temp = float(suma/1000.0);
     Serial.print("Temp: "); 
-    Serial.println(Temp);
-    //Serial.println(float(suma/10000.0));
+   
+
     Serial.print("Suma: "); 
     Serial.println(suma); 
     Serial.print("Media: "); 
-    Serial.println(float(suma/10.0)); 
-    //Serial.print(","); 
-    //Serial.println(suma/10%10); 
-    Serial.print("Maximo: "); 
-    Serial.println(maximo); 
-    //Serial.print(","); 
-    //Serial.print(maximo/10%10); 
-    Serial.print("Minimo: "); 
-    Serial.println(minimo); 
-    //Serial.print(","); 
-    //Serial.print(minimo/10%10); 
-    Serial.print("Diferencia: "); 
-    Serial.println(diferencia); 
-    //Serial.print(","); 
-    //Serial.println(diferencia/10%10);
-    Serial.println("**********************************************************************************************************");
-  Input = lectura;
-  myPID.Compute(); 
-   // PID();  //rutina
-   delay(10); 
+    Serial.println(float(suma/1000.0)); 
 
+    Serial.print("Maximo: "); 
+    Serial.println(float(maximo/100.0)); 
+
+    Serial.print("Minimo: "); 
+    Serial.println (float(minimo/100.0)); 
+
+    Serial.print("Diferencia: "); 
+    Serial.println (float(diferencia/100.0)); 
+
+    Serial.println("**********************************************************************************************************");
+*/
+Setpoint = consigna;
+// Setpoint = (consigna * -1);              //Setpoint del PID es la consigna introducida por eclado. pasada a en negativo
+WindowSize = (tiempo*1000);                   // tiempo en segundos
+Kp = kp;
+Kd = kd;
+Ki = ki;
+/*Serial.print("consigna =");Serial.println(Setpoint); 
+Serial.print("tiempo =");Serial.println(WindowSize);
+Serial.print("kp =");Serial.println(Kp);
+Serial.print("kd =");Serial.println(Kd);
+Serial.print("ki =");Serial.println(Ki);   
+*/    
+  Input = Temp;       //El impud del Pid es la temp medida
+  myPID.Compute(); 
+  delay(10); 
+  Temp=float(suma/1000.0);
+// Serial.println("*******************************************************************"); 
+Serial.print("Tp   "); Serial.println(Temp);
+Serial.print("SP   ");Serial.println(Setpoint); 
+Serial.print("Vt   ");Serial.println(WindowSize);
+Serial.print("ST ");Serial.println(windowStartTime);
+Serial.print("Out ");Serial.println (Output); 
+Serial.print("millis ");Serial.println (millis());  
+ 
+//Serial.println("*******************************************************************"); 
   /************************************************
    * turn the output pin on/off based on pid output
    ************************************************/
   if (millis() - windowStartTime > WindowSize)
   { //time to shift the Relay Window
-    windowStartTime += WindowSize;
+    windowStartTime += WindowSize;    //
   }
-  if (Output < millis() - windowStartTime) digitalWrite(RELAY_PIN, HIGH);
-  else digitalWrite(RELAY_PIN, LOW);
-
-  
+  //Serial.print(" milliss...="); Serial.println (int(millis));
+  if (Output < millis() - windowStartTime) digitalWrite(RELAY_PIN, LOW);
+  else digitalWrite(RELAY_PIN, HIGH);
   // funcioncontrol(float (Temp));   // Salto al control
   
   }
@@ -419,13 +445,11 @@ Serial.print("ki =");Serial.println(Ki);
   if (numeroLectura > 9) {
     // Cuando se termina de tomar las 100 
     //lecturas empezamos de nuevo por la primera
-    Serial.println("BUCLE DE 10 LECTURAS  TERMINADO : ");
+    //Serial.println("BUCLE DE 10 LECTURAS  TERMINADO : ");
     numeroLectura = 0;
    
   }
-
-
- // delay(10);      
+  // delay(10);      
   // Si se desborda millis() empieza otra 
   //vez por cero, ocurre cada 50 dias
   if (millis() < time){   
@@ -436,14 +460,15 @@ Serial.print("ki =");Serial.println(Ki);
 //********************************************************************************************     TERMINA       LOOP
 //*****************************************************************************************************************
 
-void PID(){
+/*void PID(){
   Serial.println("EJECUTANDO PID: ");
   // Si se desborda millis() empieza otra 
   // vez por cero, ocurre cada 50 dias
           if (millis() < tiempoPID){   
               tiempoPID = millis();
           }
-             // Si no ha pasado todavía el timepo de ciclo del PID
+          
+          // Si no ha pasado todavía el timepo de ciclo del PID
           if (millis() < tiempoPID + (tiempo*10*1000)){  
              // entonces mantenemos la fuerza y esperamos mas tiempo
    
@@ -460,7 +485,7 @@ void PID(){
           tiempoPID = millis();
           }
 
-}
+} */
 //----------------------------------------------------------------------------------------------------  
 
 // Convertimos el valor leido en analogico 
@@ -481,52 +506,46 @@ int get_key(unsigned int input)
   return k;
 }
 
-
-
-
-int temperaturaFicticia = 2450;
-int ptf= 0;
-
 //**********************************************************************************************************************************************************
 //**********************************************************************************************************************************************************
 //**********************************************************************************************************************************************************
 
 boolean cargarConfig(){
-  if ((EEPROM.read(0) == 27) && (EEPROM.read(1) == 28) && 
-     (EEPROM.read(2) == 13) && (EEPROM.read(3) == 18)) {
+  if ((EEPROM.read(20) == 27) && (EEPROM.read(21) == 28) && 
+      (EEPROM.read(22) == 13) && (EEPROM.read(23) == 18)) {
     // Comprobamos que la eeprom tenga una 
     // configuracion valida con numeros concretos
     // solo cargamos el valor de la configuracion si los valores coinciden
-    if (EEPROM.read(4) == EEPROM.read(5)) consigna = EEPROM.read(4);  
-    if (EEPROM.read(6) == EEPROM.read(7)) tiempo = EEPROM.read(6);
-    if (EEPROM.read(8) == EEPROM.read(9)) kp = EEPROM.read(8);
-    if (EEPROM.read(10) == EEPROM.read(11)) kd = EEPROM.read(10);
-    if (EEPROM.read(12) == EEPROM.read(13)) ki = EEPROM.read(12);
-    if (EEPROM.read(14) == EEPROM.read(15)) intensidad = EEPROM.read(14);
+    if (EEPROM.read(24) == EEPROM.read(25)) consigna = EEPROM.read(24);  
+    if (EEPROM.read(26) == EEPROM.read(27)) tiempo = EEPROM.read(26);
+    if (EEPROM.read(28) == EEPROM.read(29)) kp = EEPROM.read(28);
+    if (EEPROM.read(30) == EEPROM.read(31)) kd = EEPROM.read(30);
+    if (EEPROM.read(32) == EEPROM.read(33)) ki = EEPROM.read(32);
+    if (EEPROM.read(34) == EEPROM.read(35)) intensidad = EEPROM.read(14);
     return true;
   }
   return false;
 }
 
 void guardarConfig(){
-  EEPROM.write(0,27);
-  EEPROM.write(1,28);
-  EEPROM.write(2,13);
-  EEPROM.write(3,18);
+  EEPROM.write(20,27);
+  EEPROM.write(21,28);
+  EEPROM.write(22,13);
+  EEPROM.write(23,18);
   // Ponemos nmeros concretos en el comienzo 
   // de la EEPROM para confirmar que tiene valores correctos.
-  EEPROM.write(4,consigna);
-  EEPROM.write(5,consigna);  // almacenamos los valores 2 veces
-  EEPROM.write(6,tiempo);
-  EEPROM.write(7,tiempo);  // almacenamos los valores 2 veces
-  EEPROM.write(8,kp);
-  EEPROM.write(9,kp);  // almacenamos los valores 2 veces
-  EEPROM.write(10,kd);
-  EEPROM.write(11,kd);  // almacenamos los valores 2 veces
-  EEPROM.write(12,ki);
-  EEPROM.write(13,ki);  // almacenamos los valores 2 veces
-  EEPROM.write(14,intensidad);
-  EEPROM.write(15,intensidad);  // almacenamos los valores 2 veces
+  EEPROM.write(24,consigna);
+  EEPROM.write(25,consigna);  // almacenamos los valores 2 veces
+  EEPROM.write(26,tiempo);
+  EEPROM.write(27,tiempo);  // almacenamos los valores 2 veces
+  EEPROM.write(28,kp);
+  EEPROM.write(29,kp);  // almacenamos los valores 2 veces
+  EEPROM.write(30,kd);
+  EEPROM.write(31,kd);  // almacenamos los valores 2 veces
+  EEPROM.write(32,ki);
+  EEPROM.write(33,ki);  // almacenamos los valores 2 veces
+  EEPROM.write(34,intensidad);
+  EEPROM.write(35,intensidad);  // almacenamos los valores 2 veces
 }
 
 //----------------------------------------------------------------------------------------------------
