@@ -1,0 +1,116 @@
+Los procesos a los cuáles un PID estará enlazado, se dividen 2 grupos: de acción
+directa y de acción inversa
+
+En un refrigerador, por ejemplo, un aumento en la acción de enfriamiento, causa
+una disminución de la temperatura. Para que el PID funcione en un proceso de
+acción inversa, los signos de Kp, Ki, y Kd deben ser negativos.
+
+
+Esto no es un problema por si mismo, pero el usuario debe elegir el signo
+correcto, y asegúrese de que todos los parámetros tengan el mismo signo.
+
+Para hacer el proceso un poco más simple, se requiere que los parámetros Kp, Ki,
+y kd sean > = 0. Si el usuario está trabajando en un proceso de acción inversa, se
+especifica por separado, utilizando la función SetControllerDirection. esto asegura
+que los parámetros tienen el mismo signo.
+
+
+
+
+
+//Variablesdetrabajo.
+unsigned long lastTime;
+double Input,Output,Setpoint;
+double ITerm,lastInput;
+double kp,ki,kd;
+int SampleTime=1000;//Tiempodemuestreo1segundo.
+double outMin,outMax;
+bool inAuto=false;
+double timeChange = 0;
+#define MANUAL=0;
+#define AUTOMATIC 1;
+#define DIRECT 0;
+#define REVERSE 1;
+int controllerDirection = DIRECT; 
+
+void Compute()
+{
+if(!inAuto)return;
+unsigned long now = millis();
+int timeChange = (now-lastTime);
+if(timeChange>=SampleTime)
+{
+//Calculamostodosloserrores.
+double error=Setpoint-Input;
+ITerm+=(ki*error);
+if(ITerm>outMax)ITerm=outMax;
+else if(ITerm<outMin)ITerm=outMin;
+double dInput=(Input-lastInput);
+//CalculamoslafuncióndesalidadelPID.
+Output=kp*error+ITerm-kd*dInput;
+if(Output>outMax)Output=outMax;
+else if(Output<outMin)Output=outMin;
+//Guardamoselvalordealgunasvariablesparaelpróximorecálculo.
+lastInput=Input;
+lastTime=now;
+}
+}
+void SetTunings(double Kp,double Ki,double Kd)
+{
+if(Kp<0||Ki<0||Kd<0)return;
+double SampleTimeInSec=((double)SampleTime)/1000;
+kp=Kp;
+ki=Ki*SampleTimeInSec;
+kd=Kd/SampleTimeInSec;
+  if (controllerDirection ==REVERSE)
+      {
+  kp=(0-kp);
+  ki=(0-ki);
+  kd=(0-kd);
+      }
+}
+
+ void SetSampleTime(int NewSampleTime)
+{
+if(NewSampleTime>0)
+{
+double ratio =(double)NewSampleTime/(double)SampleTime;
+ki*=ratio;
+kd/=ratio;
+SampleTime=(unsignedlong)NewSampleTime;
+}
+}
+void SetOutputLimits(double Min,double Max)
+{
+if(Min>Max)return;
+outMin=Min;
+outMax=Max;
+if(Output>outMax)Output=outMax;
+else if(Output<outMin)Output=outMin;
+if (ITerm>outMax)ITerm=outMax;
+else if(ITerm<outMin)ITerm=outMin;
+}
+void SetMode(int Mode)
+{
+bool newAuto = (Mode == AUTOMATIC);
+
+if(newAuto &&! inAuto)
+   { //Paracambiardemanualaautomático,inicializamosalgunosparámetros.
+     Initialize();
+   }
+     inAuto=newAuto;
+   }
+void Initialize()
+{
+lastInput=Input;
+ITerm=Output;
+if(ITerm>outMax)ITerm=outMax;
+else if(ITerm<outMin)ITerm=outMin;
+}
+void SetControllerDirection(int Direction)
+{
+controllerDirection=Direction;
+}
+// fin
+
+}
