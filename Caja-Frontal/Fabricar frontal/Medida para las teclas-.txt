@@ -1,0 +1,15 @@
+Partiendo de la esquina inferior dercha del display
+Los taladros para las teclas los realizo en .
+
+
+X	 	Y
+______________________
+0	,	0   		//Esquina inferior izquierda.   
+18	,      -9		//Agujero para tecla arriba
+18	,     -12
+9	,     -10
+1	,     -10
+27	.     -10
+35	,     -10
+
+Una fresa de 3mm deja el agujero de una sola vez,
